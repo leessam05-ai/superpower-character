@@ -27,7 +27,9 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;backgrou
 .sw.on{outline:4px solid #ff5e8a;transform:scale(1.12)}
 .tl{font-size:1.15rem;padding:8px 12px}.tl.on{outline:4px solid #ff5e8a}
 .btn:disabled{opacity:.6}
+#muteBtn{position:fixed;top:10px;right:10px;font-size:1.6rem;padding:8px 12px;z-index:5}
 </style></head><body>
+<button class="btn b3" id="muteBtn" title="소리 켜기/끄기">🔊</button>
 <h1>나의 초능력 캐릭터</h1>
 <div class="step" id="msg">① 그림을 찍거나, 직접 그려 보세요!</div>
 <div class="row">
@@ -89,6 +91,51 @@ let stream=null,mode='empty',C=null,power='idle',t0=0,parts=[],dragJ=null,labelT
 const show=(el,on)=>$(el).classList.toggle('hide',!on);
 const msg=s=>$('msg').textContent=s;
 
+/* ================= 효과음 (파일 없이 직접 만든 소리) ================= */
+let AC=null,master=null,recDest=null,muted=false,liveSnd=[];
+try{muted=localStorage.getItem('muted')==='1'}catch(e){}
+function ac(){
+  if(!AC){const A=window.AudioContext||window.webkitAudioContext;if(!A)return null;AC=new A();master=AC.createGain();master.gain.value=muted?0:.7;master.connect(AC.destination);
+    if(AC.createMediaStreamDestination){recDest=AC.createMediaStreamDestination();master.connect(recDest)}}
+  if(AC.state==='suspended')AC.resume();return AC}
+document.addEventListener('pointerdown',()=>ac(),true);
+function setMute(m){muted=m;$('muteBtn').textContent=m?'🔇':'🔊';if(master)master.gain.value=m?0:.7;try{localStorage.setItem('muted',m?'1':'0')}catch(e){}}
+$('muteBtn').onclick=()=>{setMute(!muted);if(!muted)ui('pop')};setMute(muted);
+function env(g,t,vol,dur,attack){g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+(attack||.01));g.gain.exponentialRampToValueAtTime(.0008,t+dur)}
+function tone(freq,dur,o={}){const a=ac();if(!a)return;const t=a.currentTime+(o.at||0),os=a.createOscillator(),g=a.createGain();
+  os.type=o.type||'sine';os.frequency.setValueAtTime(freq,t);if(o.slide)os.frequency.exponentialRampToValueAtTime(o.slide,t+dur);
+  if(o.vib){const l=a.createOscillator(),lg=a.createGain();l.frequency.value=o.vib;lg.gain.value=freq*.04;l.connect(lg);lg.connect(os.frequency);l.start(t);l.stop(t+dur+.05)}
+  env(g,t,o.vol??.25,dur,o.attack);os.connect(g);g.connect(master);os.start(t);os.stop(t+dur+.05);if(!o.ui)liveSnd.push({s:os,g})}
+let noiseBuf=null;
+function noise(dur,o={}){const a=ac();if(!a)return;const t=a.currentTime+(o.at||0);
+  if(!noiseBuf){noiseBuf=a.createBuffer(1,a.sampleRate*2,a.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
+  const s=a.createBufferSource();s.buffer=noiseBuf;s.loop=true;const f=a.createBiquadFilter();f.type=o.filter||'lowpass';f.frequency.setValueAtTime(o.f||1000,t);
+  if(o.f2)f.frequency.exponentialRampToValueAtTime(o.f2,t+dur);f.Q.value=o.q||1;const g=a.createGain();env(g,t,o.vol??.25,dur,o.attack);
+  s.connect(f);f.connect(g);g.connect(master);s.start(t);s.stop(t+dur+.05);if(!o.ui)liveSnd.push({s,g})}
+function stopSfx(){if(!AC)return;const n=AC.currentTime;for(const{s,g}of liveSnd){try{g.gain.cancelScheduledValues(n);g.gain.setTargetAtTime(0,n,.03);s.stop(n+.15)}catch(e){}}liveSnd=[]}
+const R=(a,b)=>a+Math.random()*(b-a);
+function ui(k){const u={ui:true};switch(k){
+  case'pop':tone(520,.08,{...u,type:'triangle',vol:.2,slide:780});break;
+  case'snap':noise(.12,{...u,filter:'highpass',f:2500,vol:.35});tone(1800,.05,{...u,type:'square',vol:.08,at:.02});break;
+  case'magic':[523,659,784,1047,1319].forEach((f,i)=>tone(f,.35,{...u,type:'triangle',vol:.16,at:i*.07}));noise(.6,{...u,filter:'highpass',f:6000,vol:.06,at:.1});break;
+  case'blop':tone(260,.12,{...u,vol:.25,slide:620});break;
+  case'done':[784,988,1175].forEach((f,i)=>tone(f,.25,{...u,type:'triangle',vol:.18,at:i*.09}));break}}
+function sfx(p){stopSfx();switch(p){
+  case'greet':[660,880,1320].forEach((f,i)=>tone(f,.18,{type:'triangle',vol:.2,at:i*.12}));tone(990,.15,{type:'triangle',vol:.15,at:.6});tone(1320,.25,{type:'triangle',vol:.15,at:.72});break;
+  case'walk':for(let t=.15;t<3.8;t+=Math.PI/9){noise(.07,{at:t,f:500,vol:.45});tone(110,.08,{at:t,vol:.25,slide:70})}break;
+  case'jump':for(const t of[0,1.3]){tone(180,.4,{at:t+.05,type:'triangle',vol:.3,slide:760});tone(120,.15,{at:t+1.25,vol:.4,slide:50});noise(.12,{at:t+1.25,f:300,vol:.5})}break;
+  case'fly':for(let t=0;t<3.3;t+=.85)noise(.8,{at:t,filter:'bandpass',f:300,f2:1400,q:1.2,vol:.9,attack:.3});for(let t=.1;t<3.3;t+=.26)noise(.08,{at:t,f:800,vol:.15});break;
+  case'fire':tone(160,.5,{type:'sawtooth',vol:.2,slide:55});noise(2.7,{at:.05,f:700,vol:.4,attack:.2});for(let i=0;i<30;i++)noise(.03,{at:R(.2,2.7),filter:'highpass',f:2500,vol:R(.15,.35)});break;
+  case'ice':noise(.5,{filter:'highpass',f:5000,vol:.15,attack:.05});for(let i=0;i<16;i++)tone(R(1600,3400),.35,{at:i*.16+R(0,.08),vol:.09});tone(2637,.8,{at:2.2,type:'triangle',vol:.12});break;
+  case'big':tone(70,1.1,{type:'sawtooth',vol:.25,slide:140});tone(140,1,{type:'square',vol:.07,slide:420});for(const t of[1.2,1.8,2.4]){tone(90,.25,{at:t,vol:.45,slide:40});noise(.18,{at:t,f:250,vol:.4})}break;
+  case'hide':tone(620,1.1,{vol:.15,slide:380,vib:6,attack:.2});tone(700,1.1,{at:1.2,vol:.15,slide:420,vib:6,attack:.2});tone(560,1.1,{at:2.3,vol:.15,slide:330,vib:6,attack:.2});break;
+  case'star':{const sc=[1047,1319,1568,2093,1568,1319];for(let i=0;i<22;i++)tone(sc[i%6],.25,{at:i*.12,type:'triangle',vol:.12});noise(2.6,{filter:'highpass',f:7000,vol:.04,attack:.3});break}
+  case'dance':{const mel=[523,659,784,659,880,784,659,587,523,659,784,1047,988,784,659,523];
+    for(let i=0;i<8;i++){const t=i*.5;tone(150,.18,{at:t,vol:.45,slide:45});noise(.05,{at:t+.25,filter:'highpass',f:6000,vol:.12})}
+    for(let i=0;i<4;i++)noise(.12,{at:i+.5,filter:'bandpass',f:1800,q:.8,vol:.18});
+    mel.forEach((f,i)=>tone(f,.22,{at:i*.25,type:'square',vol:.06}));break}
+  }}
+
 /* ================= 카메라 ================= */
 async function startCam(deviceId){
   if(stream)stream.getTracks().forEach(t=>t.stop());
@@ -137,7 +184,7 @@ function bucket(x,y){ // 색칠통: 선으로 둘러싸인 곳을 한 번에 칠
   if(n>W*H*.6){alert('선이 열려 있어서 바깥까지 칠해져요. 선을 이어서 닫아 주세요!');return}
   pctx.putImageData(im,0,0)}
 $('drawBtn').onclick=enterDraw;
-$('drawDone').onclick=()=>{const c=document.createElement('canvas');c.width=pad.width;c.height=pad.height;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(pad,0,0);show('drawBar',0);makeCharacter(c)};
+$('drawDone').onclick=()=>{ui('done');const c=document.createElement('canvas');c.width=pad.width;c.height=pad.height;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(pad,0,0);show('drawBar',0);makeCharacter(c)};
 
 /* ================= 예시 캐릭터 ================= */
 function sampleHero(){const c=document.createElement('canvas');c.width=800;c.height=900;const g=c.getContext('2d');
@@ -156,7 +203,7 @@ function sampleHero(){const c=document.createElement('canvas');c.width=800;c.hei
   g.fillStyle='#fff';g.beginPath();g.arc(365,190,13,0,7);g.arc(435,190,13,0,7);g.fill();g.fillStyle='#222';g.beginPath();g.arc(365,191,6,0,7);g.arc(435,191,6,0,7);g.fill();
   st('#222',6,[[365,240],[400,262],[435,240]]); // 입
   return c}
-$('sampleBtn').onclick=()=>{stopCam();show('drawBar',0);makeCharacter(sampleHero())};
+$('sampleBtn').onclick=()=>{ui('pop');stopCam();show('drawBar',0);makeCharacter(sampleHero())};
 
 /* ================= 저장 ================= */
 function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
@@ -164,8 +211,9 @@ const fname=ext=>($('name').value.trim()||'초능력캐릭터')+'.'+ext;
 $('shotBtn').onclick=()=>view.toBlob(b=>b&&download(b,fname('png')),'image/png');
 $('recBtn').onclick=async()=>{
   if(!view.captureStream||!window.MediaRecorder){alert('이 기기에서는 영상 저장이 안 돼요. 사진 저장을 써 주세요.');return}
-  const type=['video/mp4;codecs=avc1','video/webm;codecs=vp9','video/webm','video/mp4'].find(t=>MediaRecorder.isTypeSupported(t))||'';
-  const rec=new MediaRecorder(view.captureStream(30),type?{mimeType:type}:{}),chunks=[];
+  const vs=view.captureStream(30);ac();if(recDest)recDest.stream.getAudioTracks().forEach(t=>vs.addTrack(t)); // 효과음도 영상에 담기
+  const type=['video/mp4;codecs=avc1,mp4a.40.2','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'].find(t=>MediaRecorder.isTypeSupported(t))||'';
+  const rec=new MediaRecorder(vs,type?{mimeType:type}:{}),chunks=[];
   rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
   rec.onstop=()=>{const b=new Blob(chunks,{type:rec.mimeType||'video/webm'});download(b,fname(b.type.includes('mp4')?'mp4':'webm'));$('recBtn').disabled=false;$('recBtn').textContent='🎬 영상 저장'};
   $('recBtn').disabled=true;$('recBtn').textContent='🔴 찍는 중...';rec.start();
@@ -173,7 +221,7 @@ $('recBtn').onclick=async()=>{
 $('homeBtn').onclick=()=>{stopCam();C=null;mode='empty';parts=[];labelText='';['editBar','powers','saveBar','drawBar'].forEach(b=>show(b,0));msg('① 그림을 찍거나, 직접 그려 보세요!')};
 
 function stopCam(){if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;show('vid',0);show('guide',0);show('snapBtn',0);show('camSel',0)}
-$('snapBtn').onclick=()=>{const c=document.createElement('canvas');c.width=vid.videoWidth;c.height=vid.videoHeight;c.getContext('2d').drawImage(vid,0,0);stopCam();makeCharacter(c)};
+$('snapBtn').onclick=()=>{ui('snap');const c=document.createElement('canvas');c.width=vid.videoWidth;c.height=vid.videoHeight;c.getContext('2d').drawImage(vid,0,0);stopCam();makeCharacter(c)};
 $('file').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=im.width;c.height=im.height;c.getContext('2d').drawImage(im,0,0);stopCam();makeCharacter(c)};im.src=URL.createObjectURL(f);e.target.value=''};
 
 /* ================= 1. 그림에서 캐릭터만 떼어내기 ================= */
@@ -376,7 +424,7 @@ function eraseAt(x,y){const R=16/LY.k,ix=(x-LY.ox)/LY.k,iy=(y-LY.oy)/LY.k,g=C.ca
   for(let yy=Math.max(0,Math.floor(iy-R));yy<Math.min(C.h,iy+R);yy++)for(let xx=Math.max(0,Math.floor(ix-R));xx<Math.min(C.w,ix+R);xx++)if((xx-ix)**2+(yy-iy)**2<=R*R)C.mask[yy*C.w+xx]=add?1:0;
   erased=true}
 function enterEdit(){mode='edit';show('editBar',1);show('powers',0);show('saveBar',0);show('drawBar',0);labelText='';msg('③ 동그라미가 머리·손·발에 있나요?')}
-$('goBtn').onclick=()=>{setErase(false);buildRig();mode='play';show('editBar',0);show('powers',1);show('saveBar',1);msg('④ 초능력을 골라 보세요! (캐릭터를 누르면 인사해요)');startPower('greet')};
+$('goBtn').onclick=()=>{ui('magic');setErase(false);buildRig();mode='play';show('editBar',0);show('powers',1);show('saveBar',1);msg('④ 초능력을 골라 보세요! (캐릭터를 누르면 인사해요)');startPower('greet')};
 $('boneBtn').onclick=enterEdit;
 
 /* ================= 4. 화면 그리기 ================= */
@@ -423,7 +471,7 @@ function powerPose(p,t){const s=Math.sin;switch(p){
   case'star':{const sp=sm(t/3)*720;return{rot:norm(sp),ty:-70*s(Math.PI*clamp(t/3)),la:aim('la',-130),ra:aim('ra',-50)}}
   case'dance':{const d=t*8;return{la:aim('la',205)+s(d)*40,ra:aim('ra',-25)-s(d+Math.PI)*40,head:s(d)*9,ll:s(d)*15,rl:s(d)*15,tx:s(t*4)*50,ty:-Math.abs(s(d))*15,rot:s(d)*6}}
   }return{}}
-function startPower(p){power=p;t0=performance.now();parts=[];if(p!=='greet')lastPower=p;if(p!=='greet')say(document.querySelector(`[data-p=${p}]`).textContent+'!');else say('안녕! 👋')}
+function startPower(p){power=p;t0=performance.now();parts=[];if(p!=='greet')lastPower=p;sfx(p);if(p!=='greet')say(document.querySelector(`[data-p=${p}]`).textContent+'!');else say('안녕! 👋')}
 function say(s){const nm=$('name').value.trim();labelText=(nm?nm+': ':'')+s}
 document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>startPower(b.dataset.p));
 function emit(x,y,col,n,vx,vy,spread,size){for(let i=0;i<n;i++)parts.push({x,y,vx:vx+(Math.random()-.5)*spread,vy:vy+(Math.random()-.5)*spread,l:1,c:col[(Math.random()*col.length)|0],s:(size||6)+Math.random()*6,star:false})}
@@ -483,7 +531,7 @@ requestAnimationFrame(frame);
 /* ================= 7. 터치: 관절 옮기기 / 캐릭터 누르면 인사 ================= */
 const ptr=e=>{const r=view.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]};
 view.addEventListener('pointerdown',e=>{const[x,y]=ptr(e);
-  if(mode==='draw'){view.setPointerCapture(e.pointerId);saveUndo();if(penTool==='fill'){bucket(x,y);return}lastPt=[x,y];penLine(lastPt,[x+.01,y]);return}
+  if(mode==='draw'){view.setPointerCapture(e.pointerId);saveUndo();if(penTool==='fill'){bucket(x,y);ui('blop');return}lastPt=[x,y];penLine(lastPt,[x+.01,y]);return}
   if(!C)return;
   if(mode==='edit'&&erasing){dragJ='__erase';view.setPointerCapture(e.pointerId);eraseAt(x,y);return}
   if(mode==='edit'){let best=null,bd=35;for(const k of['head','neck','pelvis','lsh','rsh','lhand','rhand','lhip','rhip','lfoot','rfoot']){const[X,Y]=toS(C.J[k].x,C.J[k].y),d=Math.hypot(X-x,Y-y);if(d<bd){bd=d;best=k}}
