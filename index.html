@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>나의 초능력 캐릭터</title>
+<meta name="theme-color" content="#8fd3ff"><meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png"><link rel="icon" href="icon-192.png">
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:'Jua','Malgun Gothic',sans-serif;background:linear-gradient(#bfe6ff,#fff3c4);min-height:100vh;text-align:center;color:#333}
+h1{font-size:2.2rem;margin:12px 0 4px;color:#ff5e8a;text-shadow:2px 2px #fff}
+.step{font-size:1.35rem;margin:6px}
+.row{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;margin:4px}
+.btn{font-size:1.45rem;border:none;border-radius:20px;padding:12px 20px;cursor:pointer;box-shadow:0 5px #0003;font-family:inherit;color:#333}
+.btn:active{transform:translateY(4px);box-shadow:0 1px #0003}
+.b1{background:#ffd23f}.b2{background:#7bdff2}.b3{background:#b2f7b0}.b4{background:#ffb3c7}
+.hide{display:none!important}
+#stage{position:relative;width:min(94vw,700px);height:min(66vh,500px);margin:8px auto;border-radius:24px;overflow:hidden;background:linear-gradient(#8fd3ff,#d9f2ff 70%,#9be38f 70%);border:6px solid #fff}
+video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+#guide{position:absolute;inset:7% 10%;border:5px dashed #fff;border-radius:18px;pointer-events:none;box-shadow:0 0 0 2000px #0004}
+#guide span{position:absolute;top:-2px;left:50%;transform:translate(-50%,-110%);color:#fff;font-size:1.2rem;white-space:nowrap}
+#view{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+#label{position:absolute;top:10px;width:100%;font-size:1.8rem;color:#fff;text-shadow:2px 2px 0 #ff5e8a,-2px -2px 0 #ff5e8a,2px -2px 0 #ff5e8a,-2px 2px 0 #ff5e8a;pointer-events:none}
+#camSel{font-size:1.15rem;padding:8px;border-radius:12px;font-family:inherit}
+#name{font-size:1.35rem;padding:8px;border-radius:12px;border:3px solid #ff9ab8;width:200px;font-family:inherit;text-align:center}
+.powers .btn{font-size:1.25rem;padding:10px 14px}
+.tip{font-size:1.05rem;color:#555}
+.sw{width:46px;height:46px;border-radius:50%;border:4px solid #fff;box-shadow:0 3px #0003;cursor:pointer}
+.sw.on{outline:4px solid #ff5e8a;transform:scale(1.12)}
+.tl{font-size:1.15rem;padding:8px 12px}.tl.on{outline:4px solid #ff5e8a}
+.btn:disabled{opacity:.6}
+</style></head><body>
+<h1>나의 초능력 캐릭터</h1>
+<div class="step" id="msg">① 그림을 찍거나, 직접 그려 보세요!</div>
+<div class="row">
+  <button class="btn b1" id="camBtn">📷 카메라 켜기</button>
+  <button class="btn b2 hide" id="snapBtn">📸 찰칵!</button>
+  <label class="btn b3">🖼️ 사진 고르기<input type="file" accept="image/*" id="file" hidden></label>
+  <button class="btn b4" id="drawBtn">✏️ 직접 그리기</button>
+  <button class="btn b2" id="sampleBtn">🦸 예시 캐릭터</button>
+  <select id="camSel" class="hide"></select>
+</div>
+<div id="stage">
+  <video id="vid" class="hide" playsinline autoplay muted></video>
+  <div id="guide" class="hide"><span>이 안에 그림을 가득 채워요</span></div>
+  <canvas id="view"></canvas>
+  <div id="label"></div>
+</div>
+<div class="row hide" id="drawBar">
+  <div class="row" id="swatches"></div>
+  <div class="row">
+    <button class="btn b3 tl" data-t="pen" data-s="8">✏️ 가는 펜</button>
+    <button class="btn b3 tl on" data-t="pen" data-s="16">🖍️ 크레파스</button>
+    <button class="btn b3 tl" data-t="pen" data-s="34">🖌️ 굵은 붓</button>
+    <button class="btn b1 tl" data-t="fill">🪣 색칠통</button>
+    <button class="btn b2 tl" data-t="erase" data-s="26">🧽 지우개</button>
+    <button class="btn b2 tl" id="undoBtn">↩️ 되돌리기</button>
+    <button class="btn b4" id="drawDone">✅ 다 그렸어요!</button>
+  </div>
+</div>
+<div class="row hide" id="editBar">
+  <span class="tip" id="editTip">동그라미를 끌어서 머리·손·발 위치를 맞춰요 (선생님 도움)</span>
+  <button class="btn b3" id="rotBtn">🔄 돌리기</button>
+  <button class="btn b2" id="eraseBtn">🧽 지우개</button>
+  <button class="btn b1" id="restoreBtn">🖌️ 되살리기</button>
+  <button class="btn b4" id="goBtn">✨ 살아나라!</button>
+</div>
+<div class="row powers hide" id="powers">
+  <input id="name" placeholder="캐릭터 이름" maxlength="10">
+  <button class="btn b1" data-p="walk">🚶 걷기</button>
+  <button class="btn b2" data-p="jump">🦘 점프</button>
+  <button class="btn b3" data-p="fly">🕊️ 날기</button>
+  <button class="btn b1" data-p="fire">🔥 불꽃</button>
+  <button class="btn b2" data-p="ice">❄️ 얼음</button>
+  <button class="btn b3" data-p="big">💪 거인</button>
+  <button class="btn b1" data-p="hide">👻 투명</button>
+  <button class="btn b2" data-p="star">⭐ 별가루</button>
+  <button class="btn b3" data-p="dance">💃 춤추기</button>
+  <button class="btn b4" id="boneBtn">🦴 뼈대 고치기</button>
+</div>
+<div class="row hide" id="saveBar">
+  <button class="btn b1" id="shotBtn">📸 사진 저장</button>
+  <button class="btn b4" id="recBtn">🎬 영상 저장</button>
+  <button class="btn b3" id="homeBtn">🏠 새 캐릭터</button>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const vid=$('vid'),view=$('view'),ctx=view.getContext('2d'),stage=$('stage');
+const off=document.createElement('canvas'),octx=off.getContext('2d');
+let stream=null,mode='empty',C=null,power='idle',t0=0,parts=[],dragJ=null,labelText='',lastPower=null;
+const show=(el,on)=>$(el).classList.toggle('hide',!on);
+const msg=s=>$('msg').textContent=s;
+
+/* ================= 카메라 ================= */
+async function startCam(deviceId){
+  if(stream)stream.getTracks().forEach(t=>t.stop());
+  const v=deviceId?{deviceId:{exact:deviceId},width:{ideal:1280},height:{ideal:720}}:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}};
+  stream=await navigator.mediaDevices.getUserMedia({video:v});
+  vid.srcObject=stream;await vid.play().catch(()=>{});
+  mode='camera';C=null;show('vid',1);show('guide',1);show('snapBtn',1);['editBar','powers','saveBar','drawBar'].forEach(b=>show(b,0));labelText='';
+  msg('② 그림이 네모 안에 가득 보이면 찰칵!');
+  const cams=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
+  const cur=stream.getVideoTracks()[0].getSettings().deviceId||deviceId||'';
+  const sel=$('camSel');
+  sel.innerHTML=cams.map((c,i)=>`<option value="${c.deviceId}" ${c.deviceId===cur?'selected':''}>🎥 ${c.label||'카메라 '+(i+1)}</option>`).join('');
+  show('camSel',cams.length>1);
+  try{localStorage.setItem('camId',cur)}catch(e){}
+}
+function camErr(e){console.error(e);const m={NotAllowedError:'카메라 권한이 막혀 있어요. 주소창 왼쪽 아이콘에서 카메라를 "허용"으로 바꾸고 새로고침해 주세요.',NotFoundError:'연결된 카메라를 찾지 못했어요. 케이블을 다시 꽂고 새로고침해 주세요.',NotReadableError:'다른 프로그램(줌, 실물화상기 프로그램 등)이 카메라를 쓰고 있어요. 그 프로그램을 끄고 다시 눌러 주세요.',OverconstrainedError:'이 카메라를 켤 수 없어요. 다른 카메라를 골라 주세요.',SecurityError:'이 주소에서는 카메라를 쓸 수 없어요. https 주소로 열어 주세요.'};
+  alert((m[e.name]||'카메라를 켤 수 없어요.')+'\n\n(카메라 대신 "사진 고르기"를 써도 돼요)\n['+e.name+']')}
+$('camSel').onchange=e=>startCam(e.target.value).catch(camErr);
+$('camBtn').onclick=async()=>{
+  if(!navigator.mediaDevices?.getUserMedia){alert('이 주소에서는 카메라를 쓸 수 없어요. https 주소나 컴퓨터 파일로 열어 주세요.');return}
+  let saved='';try{saved=localStorage.getItem('camId')||''}catch(e){}
+  try{await startCam(saved||undefined)}catch(e){if(saved){try{localStorage.removeItem('camId')}catch(_){}try{await startCam();return}catch(e2){return camErr(e2)}}camErr(e)}};
+/* ================= 직접 그리기 ================= */
+const pad=document.createElement('canvas'),pctx=pad.getContext('2d');
+const COLORS=['#222222','#e53935','#fb8c00','#fdd835','#43a047','#1e88e5','#8e24aa','#8d5524','#ffcc99','#f48fb1'];
+let penColor=COLORS[0],penSize=16,penTool='pen',lastPt=null,undoStack=[];
+$('swatches').innerHTML=COLORS.map((c,i)=>`<div class="sw${i?'':' on'}" data-c="${c}" style="background:${c}"></div>`).join('');
+document.querySelectorAll('.sw').forEach(s=>s.onclick=()=>{penColor=s.dataset.c;document.querySelectorAll('.sw').forEach(x=>x.classList.toggle('on',x===s));if(penTool==='erase')pickTool(document.querySelector('.tl[data-s="16"]'))});
+function pickTool(b){penTool=b.dataset.t;if(b.dataset.s)penSize=+b.dataset.s;document.querySelectorAll('.tl[data-t]').forEach(x=>x.classList.toggle('on',x===b))}
+document.querySelectorAll('.tl[data-t]').forEach(b=>b.onclick=()=>pickTool(b));
+function enterDraw(){stopCam();C=null;mode='draw';parts=[];undoStack=[];
+  const W=view.clientWidth,H=view.clientHeight;pad.width=W*2;pad.height=H*2;pctx.setTransform(2,0,0,2,0,0);pctx.clearRect(0,0,W,H);
+  show('drawBar',1);show('editBar',0);show('powers',0);show('saveBar',0);labelText='';msg('② 초능력 친구를 크게 그려요! 팔과 다리도 꼭 그려 주세요')}
+function saveUndo(){undoStack.push(pctx.getImageData(0,0,pad.width,pad.height));if(undoStack.length>15)undoStack.shift()}
+$('undoBtn').onclick=()=>{const u=undoStack.pop();if(u)pctx.putImageData(u,0,0)};
+function penLine(a,b){pctx.save();pctx.globalCompositeOperation=penTool==='erase'?'destination-out':'source-over';pctx.strokeStyle=penColor;pctx.lineWidth=penSize;pctx.lineCap='round';pctx.lineJoin='round';pctx.beginPath();pctx.moveTo(a[0],a[1]);pctx.lineTo(b[0],b[1]);pctx.stroke();pctx.restore()}
+function bucket(x,y){ // 색칠통: 선으로 둘러싸인 곳을 한 번에 칠하기
+  const W=pad.width,H=pad.height,X=Math.round(x*2),Y=Math.round(y*2);if(X<0||Y<0||X>=W||Y>=H)return;
+  const im=pctx.getImageData(0,0,W,H),d=im.data,i0=(Y*W+X)*4,tr=d[i0],tg=d[i0+1],tb=d[i0+2],ta=d[i0+3];
+  const nr=parseInt(penColor.slice(1,3),16),ng=parseInt(penColor.slice(3,5),16),nbb=parseInt(penColor.slice(5,7),16);
+  if(ta>200&&Math.abs(tr-nr)+Math.abs(tg-ng)+Math.abs(tb-nbb)<20)return;
+  const same=i=>{const a=d[i+3];if(ta<60)return a<60;return a>=60&&Math.abs(d[i]-tr)+Math.abs(d[i+1]-tg)+Math.abs(d[i+2]-tb)<60};
+  const seen=new Uint8Array(W*H),st=[Y*W+X];seen[Y*W+X]=1;let n=0;
+  while(st.length){const p=st.pop(),i=p*4;if(!same(i))continue;d[i]=nr;d[i+1]=ng;d[i+2]=nbb;d[i+3]=255;n++;const px=p%W;
+    if(px>0&&!seen[p-1]){seen[p-1]=1;st.push(p-1)}if(px<W-1&&!seen[p+1]){seen[p+1]=1;st.push(p+1)}if(p>=W&&!seen[p-W]){seen[p-W]=1;st.push(p-W)}if(p<W*H-W&&!seen[p+W]){seen[p+W]=1;st.push(p+W)}}
+  if(n>W*H*.6){alert('선이 열려 있어서 바깥까지 칠해져요. 선을 이어서 닫아 주세요!');return}
+  pctx.putImageData(im,0,0)}
+$('drawBtn').onclick=enterDraw;
+$('drawDone').onclick=()=>{const c=document.createElement('canvas');c.width=pad.width;c.height=pad.height;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(pad,0,0);show('drawBar',0);makeCharacter(c)};
+
+/* ================= 예시 캐릭터 ================= */
+function sampleHero(){const c=document.createElement('canvas');c.width=800;c.height=900;const g=c.getContext('2d');
+  g.fillStyle='#fff';g.fillRect(0,0,800,900);g.lineCap='round';g.lineJoin='round';
+  const st=(col,w,pts)=>{g.strokeStyle=col;g.lineWidth=w;g.beginPath();g.moveTo(...pts[0]);for(const p of pts.slice(1))g.lineTo(...p);g.stroke()};
+  g.fillStyle='#e53935';g.beginPath();g.moveTo(330,300);g.lineTo(470,300);g.lineTo(520,600);g.lineTo(280,600);g.closePath();g.fill(); // 망토
+  st('#1e88e5',40,[[360,560],[330,780]]);st('#1e88e5',40,[[440,560],[470,780]]); // 다리
+  g.fillStyle='#8d5524';g.beginPath();g.ellipse(318,795,42,22,0,0,7);g.ellipse(482,795,42,22,0,0,7);g.fill(); // 신발
+  st('#ffcc99',30,[[345,330],[230,420],[175,470]]);st('#ffcc99',30,[[455,330],[570,420],[625,470]]); // 팔
+  g.fillStyle='#ffcc99';g.beginPath();g.arc(170,478,28,0,7);g.arc(630,478,28,0,7);g.fill(); // 주먹
+  g.fillStyle='#fdd835';g.strokeStyle='#222';g.lineWidth=6;g.beginPath();g.roundRect(330,300,140,280,30);g.fill();g.stroke(); // 몸
+  g.fillStyle='#e53935';g.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,r=i%2?18:42;g.lineTo(400+Math.cos(a)*r,410+Math.sin(a)*r)}g.closePath();g.fill(); // 별
+  g.fillStyle='#ffcc99';g.beginPath();g.arc(400,200,95,0,7);g.fill();g.stroke(); // 머리
+  g.fillStyle='#222';g.beginPath();g.ellipse(400,130,98,48,0,Math.PI,0);g.fill(); // 머리카락
+  g.fillStyle='#8e24aa';g.beginPath();g.roundRect(318,170,164,40,18);g.fill(); // 가면
+  g.fillStyle='#fff';g.beginPath();g.arc(365,190,13,0,7);g.arc(435,190,13,0,7);g.fill();g.fillStyle='#222';g.beginPath();g.arc(365,191,6,0,7);g.arc(435,191,6,0,7);g.fill();
+  st('#222',6,[[365,240],[400,262],[435,240]]); // 입
+  return c}
+$('sampleBtn').onclick=()=>{stopCam();show('drawBar',0);makeCharacter(sampleHero())};
+
+/* ================= 저장 ================= */
+function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
+const fname=ext=>($('name').value.trim()||'초능력캐릭터')+'.'+ext;
+$('shotBtn').onclick=()=>view.toBlob(b=>b&&download(b,fname('png')),'image/png');
+$('recBtn').onclick=async()=>{
+  if(!view.captureStream||!window.MediaRecorder){alert('이 기기에서는 영상 저장이 안 돼요. 사진 저장을 써 주세요.');return}
+  const type=['video/mp4;codecs=avc1','video/webm;codecs=vp9','video/webm','video/mp4'].find(t=>MediaRecorder.isTypeSupported(t))||'';
+  const rec=new MediaRecorder(view.captureStream(30),type?{mimeType:type}:{}),chunks=[];
+  rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+  rec.onstop=()=>{const b=new Blob(chunks,{type:rec.mimeType||'video/webm'});download(b,fname(b.type.includes('mp4')?'mp4':'webm'));$('recBtn').disabled=false;$('recBtn').textContent='🎬 영상 저장'};
+  $('recBtn').disabled=true;$('recBtn').textContent='🔴 찍는 중...';rec.start();
+  const p=lastPower||'dance';startPower(p);await new Promise(r=>setTimeout(r,(DUR[p]+.5)*1000));rec.stop()};
+$('homeBtn').onclick=()=>{stopCam();C=null;mode='empty';parts=[];labelText='';['editBar','powers','saveBar','drawBar'].forEach(b=>show(b,0));msg('① 그림을 찍거나, 직접 그려 보세요!')};
+
+function stopCam(){if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;show('vid',0);show('guide',0);show('snapBtn',0);show('camSel',0)}
+$('snapBtn').onclick=()=>{const c=document.createElement('canvas');c.width=vid.videoWidth;c.height=vid.videoHeight;c.getContext('2d').drawImage(vid,0,0);stopCam();makeCharacter(c)};
+$('file').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=im.width;c.height=im.height;c.getContext('2d').drawImage(im,0,0);stopCam();makeCharacter(c)};im.src=URL.createObjectURL(f);e.target.value=''};
+
+/* ================= 1. 그림에서 캐릭터만 떼어내기 ================= */
+function morph(m,W,H,r,dil){
+  const t=new Uint8Array(m.length),o=new Uint8Array(m.length);
+  for(let y=0;y<H;y++){let cnt=0;const row=y*W;
+    for(let x=-r;x<W;x++){const a=x+r;if(a<W&&m[row+a])cnt++;const d=x-r-1;if(d>=0&&m[row+d])cnt--;
+      if(x>=0){const win=Math.min(W-1,x+r)-Math.max(0,x-r)+1;t[row+x]=dil?(cnt>0?1:0):(cnt===win?1:0)}}}
+  for(let x=0;x<W;x++){let cnt=0;
+    for(let y=-r;y<H;y++){const a=y+r;if(a<H&&t[a*W+x])cnt++;const d=y-r-1;if(d>=0&&t[d*W+x])cnt--;
+      if(y>=0){const win=Math.min(H-1,y+r)-Math.max(0,y-r)+1;o[y*W+x]=dil?(cnt>0?1:0):(cnt===win?1:0)}}}
+  return o}
+function segment(src){
+  const S=Math.min(1,900/Math.max(src.width,src.height));
+  const W=Math.round(src.width*S),H=Math.round(src.height*S),N=W*H;
+  const c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d',{willReadFrequently:true});g.drawImage(src,0,0,W,H);
+  const img=g.getImageData(0,0,W,H),p=img.data;
+  const L=new Float32Array(N),Sat=new Float32Array(N);
+  for(let i=0;i<N;i++){const r=p[i*4],gg=p[i*4+1],b=p[i*4+2];L[i]=.299*r+.587*gg+.114*b;Sat[i]=Math.max(r,gg,b)-Math.min(r,gg,b)}
+  // 종이 밝기 지도 (그림자/조명 차이 보정)
+  const B=24,bw=Math.ceil(W/B),bh=Math.ceil(H/B),blk=new Float32Array(bw*bh),blk2=new Float32Array(bw*bh);
+  for(let by=0;by<bh;by++)for(let bx=0;bx<bw;bx++){const v=[];for(let y=by*B;y<Math.min(H,by*B+B);y+=2)for(let x=bx*B;x<Math.min(W,bx*B+B);x+=2)v.push(L[y*W+x]);v.sort((a,b)=>a-b);blk[by*bw+bx]=v[Math.floor(v.length*.9)]||0}
+  const R=2;for(let by=0;by<bh;by++)for(let bx=0;bx<bw;bx++){let m=0;for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++){const X=bx+dx,Y=by+dy;if(X>=0&&Y>=0&&X<bw&&Y<bh&&blk[Y*bw+X]>m)m=blk[Y*bw+X]}blk2[by*bw+bx]=m}
+  const ink=new Uint8Array(N),Dk=new Float32Array(N);
+  for(let y=0;y<H;y++){let fy=(y+.5)/B-.5;fy=Math.max(0,Math.min(bh-1,fy));const y0=Math.floor(fy),y1=Math.min(bh-1,y0+1),ty=fy-y0;
+    for(let x=0;x<W;x++){let fx=(x+.5)/B-.5;fx=Math.max(0,Math.min(bw-1,fx));const x0=Math.floor(fx),x1=Math.min(bw-1,x0+1),tx=fx-x0;
+      const bg=(blk2[y0*bw+x0]*(1-tx)+blk2[y0*bw+x1]*tx)*(1-ty)+(blk2[y1*bw+x0]*(1-tx)+blk2[y1*bw+x1]*tx)*ty;
+      const i=y*W+x,d=bg-L[i];Dk[i]=d;if(d>Math.max(28,bg*.15)||Sat[i]>50||(Sat[i]>35&&d>6))ink[i]=1}}
+  // 선 사이 틈 메우고, 바깥 배경을 테두리부터 채워서 지우기 → 선 안쪽(몸통)은 남김
+  const r=Math.max(2,Math.round(Math.max(W,H)/250));
+  const dil=morph(ink,W,H,r,true);
+  // 빈 공간(선이 없는 곳) 덩어리 중 가장 큰 것 = 종이 배경, 가장자리에 닿는 것도 배경. 나머지 작은 빈곳은 캐릭터 몸 안쪽
+  const q=new Int32Array(N),el=new Int32Array(N),ecomp=[];let qh=0,qt=0,en=0;
+  for(let s=0;s<N;s++){if(dil[s]||el[s])continue;en++;qh=0;qt=0;q[qt++]=s;el[s]=en;let area=0,border=false;
+    while(qh<qt){const i=q[qh++],x=i%W;area++;if(x===0||x===W-1||i<W||i>=N-W)border=true;
+      if(x>0&&!dil[i-1]&&!el[i-1]){el[i-1]=en;q[qt++]=i-1}if(x<W-1&&!dil[i+1]&&!el[i+1]){el[i+1]=en;q[qt++]=i+1}
+      if(i>=W&&!dil[i-W]&&!el[i-W]){el[i-W]=en;q[qt++]=i-W}if(i<N-W&&!dil[i+W]&&!el[i+W]){el[i+W]=en;q[qt++]=i+W}}
+    ecomp.push({area,border})}
+  let big=-1,ba=0;ecomp.forEach((c,k)=>{if(c.area>ba){ba=c.area;big=k}});
+  const isBg=ecomp.map((c,k)=>k===big||c.border||c.area>N*.08);
+  let fill=new Uint8Array(N);for(let i=0;i<N;i++)fill[i]=dil[i]||!isBg[el[i]-1]?1:0;
+  fill=morph(fill,W,H,r,false);
+  // 덩어리 나누기: 가장 큰 그림 덩어리(+가까운 조각) 남기고, 화면 가장자리에 붙은 책상/종이 끝은 버리기
+  // 캐릭터 고르기: 굵게 칠해진 부분(core)을 찾고, 색칠/진한 선을 따라서만 넓혀가기
+  // → 연한 연필 배경(건물), 학습지 테두리, 글씨 칸이 붙어 있어도 떼어냄
+  const ro=Math.max(2,Math.round(Math.max(W,H)/180));
+  const cb=new Uint8Array(N);for(let i=0;i<N;i++)cb[i]=ink[i]&&(Sat[i]>40||Dk[i]>60)?1:0; // 색칠되거나 진하게 칠한 곳만
+  const core=morph(morph(cb,W,H,ro,false),W,H,ro,true);
+  const strong=new Uint8Array(N);for(let i=0;i<N;i++)strong[i]=fill[i]&&(Sat[i]>40||Dk[i]>75||!ink[i])?1:0;
+  const clab=new Int32Array(N);let cn=0,best=null;
+  for(let s=0;s<N;s++){if(!core[s]||clab[s])continue;cn++;qh=0;qt=0;q[qt++]=s;clab[s]=cn;let area=0,col=0,sx=0,sy=0,border=false;
+    while(qh<qt){const i=q[qh++],x=i%W,y=(i-x)/W;area++;sx+=x;sy+=y;if(Sat[i]>40)col++;if(x===0||y===0||x===W-1||y===H-1)border=true;
+      if(x>0&&core[i-1]&&!clab[i-1]){clab[i-1]=cn;q[qt++]=i-1}if(x<W-1&&core[i+1]&&!clab[i+1]){clab[i+1]=cn;q[qt++]=i+1}
+      if(y>0&&core[i-W]&&!clab[i-W]){clab[i-W]=cn;q[qt++]=i-W}if(y<H-1&&core[i+W]&&!clab[i+W]){clab[i+W]=cn;q[qt++]=i+W}}
+    if(area<N*.003)continue;
+    const dc=Math.hypot(sx/area/W-.5,sy/area/H-.5);
+    const score=area*(.1+col/area)*(1.3-dc)*(border?.05:1);
+    if(!best||score>best.score)best={id:cn,score}}
+  if(best){
+    let sel=new Uint8Array(N);for(let i=0;i<N;i++)sel[i]=clab[i]===best.id?1:0;
+    // 가까이 있는 다른 색칠 조각(머리, 신발 등)도 함께 가져오기
+    const ids=new Set([best.id]),D=Math.round(Math.max(W,H)*.03);
+    for(let it=0;it<3;it++){const d=morph(sel,W,H,D,true);let add=false;for(let i=0;i<N;i++)if(d[i]&&clab[i]&&!ids.has(clab[i])){ids.add(clab[i]);add=true}
+      if(!add)break;for(let i=0;i<N;i++)sel[i]=ids.has(clab[i])?1:0}
+    // 색칠된 선은 끝까지, 색 없는 진한 선(테두리·연필)은 짧게만 따라가기 (0-1 너비우선탐색)
+    const near=morph(sel,W,H,r*2,true),grow=new Uint8Array(N);
+    const nb=(i)=>{const x=i%W;return[x>0?i-1:-1,x<W-1?i+1:-1,i>=W?i-W:-1,i<N-W?i+W:-1]};
+    // (1) 색칠된 부분은 이어진 만큼 모두
+    qh=0;qt=0;for(let i=0;i<N;i++)if(sel[i]){grow[i]=1;q[qt++]=i}
+    while(qh<qt){const i=q[qh++];for(const j of nb(i))if(j>=0&&fill[j]&&!grow[j]&&(near[j]||Sat[j]>40)){grow[j]=1;q[qt++]=j}}
+    // (2) 색 없는 진한 선은 조각별로: 캐릭터보다 작으면(팔·다리·윤곽) 남기고, 길게 뻗으면(테두리·배경) 버리기
+    let gx0=W,gy0=H,gx1=0,gy1=0;for(let i=0;i<N;i++)if(grow[i]){const x=i%W,y=(i-x)/W;if(x<gx0)gx0=x;if(x>gx1)gx1=x;if(y<gy0)gy0=y;if(y>gy1)gy1=y}
+    const gs=Math.max(gx1-gx0,gy1-gy0,10),dl=new Int32Array(N);let dn=0;
+    for(let s=0;s<N;s++){if(grow[s]||dl[s]||!(fill[s]&&ink[s]&&Dk[s]>55))continue;dn++;qh=0;qt=0;q[qt++]=s;dl[s]=dn;
+      let x0=W,y0=H,x1=0,y1=0,touch=false,border=false;
+      while(qh<qt){const i=q[qh++],x=i%W,y=(i-x)/W;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;if(x===0||y===0||x===W-1||y===H-1)border=true;
+        for(const j of nb(i)){if(j<0)continue;if(grow[j])touch=true;else if(!dl[j]&&fill[j]&&ink[j]&&Dk[j]>55){dl[j]=dn;q[qt++]=j}}}
+      const ext=Math.max(x1-x0,y1-y0),ox=Math.max(0,gx0-x0,x1-gx1),oy=Math.max(0,gy0-y0,y1-gy1);
+      if(touch&&!border&&ext<gs*.8&&Math.max(ox,oy)<gs*.5)for(let k=0;k<qt;k++)grow[q[k]]=2}
+    for(let i=0;i<N;i++)if(grow[i]===2)grow[i]=1;
+    // 캐릭터 안쪽에 갇힌 빈곳 채우기
+    const ob=new Uint8Array(N);qh=0;qt=0;const pb=i=>{if(!ob[i]&&!grow[i]){ob[i]=1;q[qt++]=i}};
+    for(let x=0;x<W;x++){pb(x);pb((H-1)*W+x)}for(let y=0;y<H;y++){pb(y*W);pb(y*W+W-1)}
+    while(qh<qt){const i=q[qh++],x=i%W;if(x>0)pb(i-1);if(x<W-1)pb(i+1);if(i>=W)pb(i-W);if(i<N-W)pb(i+W)}
+    for(let i=0;i<N;i++)fill[i]=ob[i]?0:1;
+    // 가장자리에 붙은 종이색 테두리 다듬기
+    // 바깥에서부터 종이색만 따라 걷어내기 (선을 넘지 않으므로 캐릭터 안쪽 흰색은 안전)
+    const paper=i=>!ink[i]&&Sat[i]<24;qh=0;qt=0;
+    for(let i=0;i<N;i++)if(!fill[i]){const x=i%W;if((x>0&&fill[i-1]&&paper(i-1))||(x<W-1&&fill[i+1]&&paper(i+1))||(i>=W&&fill[i-W]&&paper(i-W))||(i<N-W&&fill[i+W]&&paper(i+W)))q[qt++]=i}
+    while(qh<qt){const i=q[qh++],x=i%W;for(const j of[x>0?i-1:-1,x<W-1?i+1:-1,i>=W?i-W:-1,i<N-W?i+W:-1])if(j>=0&&fill[j]&&!sel[j]&&paper(j)){fill[j]=0;q[qt++]=j}}
+    // 가는 자투리 선 정리: 한 번 깎았다 다시 채우기
+    const op=morph(morph(fill,W,H,1,false),W,H,1,true);for(let i=0;i<N;i++)if(!near[i])fill[i]&=op[i];
+    // 가장자리의 작은 홈(잘린 볼 등) 메우기: 종이색이 아닌 곳만
+    const RC=Math.round(Math.max(W,H)*.02),cl=morph(morph(fill,W,H,RC,true),W,H,RC,false);
+    for(let i=0;i<N;i++)if(cl[i]&&!fill[i]&&!(Sat[i]<24&&Dk[i]<30))fill[i]=1}
+  const lab=new Int32Array(N),comps=[];let n=0;
+  for(let s=0;s<N;s++){if(!fill[s]||lab[s])continue;n++;qh=0;qt=0;q[qt++]=s;lab[s]=n;
+    let area=0,x0=W,y0=H,x1=0,y1=0,border=false;
+    while(qh<qt){const i=q[qh++],x=i%W,y=(i-x)/W;area++;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
+      if(x===0||y===0||x===W-1||y===H-1)border=true;
+      if(x>0&&fill[i-1]&&!lab[i-1]){lab[i-1]=n;q[qt++]=i-1}if(x<W-1&&fill[i+1]&&!lab[i+1]){lab[i+1]=n;q[qt++]=i+1}
+      if(y>0&&fill[i-W]&&!lab[i-W]){lab[i-W]=n;q[qt++]=i-W}if(y<H-1&&fill[i+W]&&!lab[i+W]){lab[i+W]=n;q[qt++]=i+W}}
+    comps.push({id:n,area,x0,y0,x1,y1,border})}
+  let cand=comps.filter(c=>!c.border&&c.area>N*.002&&c.area<N*.6);
+  if(!cand.length)cand=comps.filter(c=>c.area>N*.002&&c.area<N*.7);
+  if(!cand.length)return null;
+  cand.sort((a,b)=>b.area-a.area);
+  const M=cand[0],keep=new Set([M.id]);let X0=M.x0,Y0=M.y0,X1=M.x1,Y1=M.y1;const pd=(X1-X0+Y1-Y0)*.08;
+  for(const c of comps)if(c.id!==M.id&&!c.border&&c.area>M.area*.002&&c.x1>X0-pd&&c.x0<X1+pd&&c.y1>Y0-pd&&c.y0<Y1+pd){keep.add(c.id);X0=Math.min(X0,c.x0);Y0=Math.min(Y0,c.y0);X1=Math.max(X1,c.x1);Y1=Math.max(Y1,c.y1)}
+  const P=Math.max(6,Math.round((X1-X0+Y1-Y0)*.06));X0=Math.max(0,X0-P);Y0=Math.max(0,Y0-P);X1=Math.min(W-1,X1+P);Y1=Math.min(H-1,Y1+P);
+  const w=X1-X0+1,h=Y1-Y0+1,oc=document.createElement('canvas');oc.width=w;oc.height=h;const og=oc.getContext('2d');
+  const od=og.createImageData(w,h),mask=new Uint8Array(w*h);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const si=(y+Y0)*W+x+X0,di=y*w+x;if(keep.has(lab[si])){mask[di]=1;od.data[di*4]=p[si*4];od.data[di*4+1]=p[si*4+1];od.data[di*4+2]=p[si*4+2];od.data[di*4+3]=255}}
+  og.putImageData(od,0,0);
+  const orig=document.createElement('canvas');orig.width=w;orig.height=h;orig.getContext('2d').drawImage(c,X0,Y0,w,h,0,0,w,h); // 되살리기용 원본
+  return{canvas:oc,orig,mask,w,h}}
+
+/* ================= 2. 뼈대(관절) 자동으로 찾기 ================= */
+function guessJoints(M,w,h){
+  const rows=[];for(let y=0;y<h;y++){const rs=[];let s=-1;for(let x=0;x<=w;x++){const v=x<w&&M[y*w+x];if(v&&s<0)s=x;if(!v&&s>=0){rs.push([s,x-1]);s=-1}}rows.push(rs)}
+  let top=0;while(top<h-1&&!rows[top].length)top++;let bot=h-1;while(bot>0&&!rows[bot].length)bot--;
+  const H=bot-top+1,width=y=>rows[y].reduce((a,r)=>a+r[1]-r[0]+1,0);
+  // 목: 가운데 덩어리가 가장 가늘어지는 곳 (팔은 빼고 계산)
+  let mx=0,mc=0;for(let yy=top;yy<=bot;yy++)for(const r of rows[yy]){mx+=(r[0]+r[1])/2*(r[1]-r[0]+1);mc+=r[1]-r[0]+1}
+  const mcx=mc?mx/mc:w/2;
+  const cw=y=>{let best=0,bd=1e9;for(const r of rows[y]){const d=mcx<r[0]?r[0]-mcx:mcx>r[1]?mcx-r[1]:0;if(d<bd){bd=d;best=r[1]-r[0]+1}}return bd<w*.08?best:0};
+  let neckY=Math.round(top+H*.3),minW=1e9,maxAbove=0;
+  for(let y=top;y<=top+H*.45;y++){const wd=cw(y);if(y>=top+H*.12&&wd>0&&wd<minW&&wd<maxAbove*.85){minW=wd;neckY=y}if(wd>maxAbove)maxAbove=wd}
+  const two=y=>rows[y].filter(r=>r[1]-r[0]>=2).length>=2;
+  let hipY=Math.round(top+H*.62),y=Math.round(bot-H*.04);
+  if(two(y)){while(y>top+H*.45&&two(y-1))y--;if(bot-y>H*.08)hipY=y}
+  if(hipY<=neckY+H*.1)hipY=Math.round(neckY+(bot-neckY)*.5);
+  let sx=0,cnt=0;for(let yy=neckY;yy<=hipY;yy++)for(const r of rows[yy])for(let x=r[0];x<=r[1];x++){sx+=x;cnt++}
+  const cx=cnt?sx/cnt:w/2;
+  const ws=[];for(let yy=neckY;yy<=hipY;yy++){let best=null,bd=1e9;for(const r of rows[yy]){const d=cx<r[0]?r[0]-cx:cx>r[1]?cx-r[1]:0;if(d<bd){bd=d;best=r}}if(best)ws.push(best[1]-best[0]+1)}
+  ws.sort((a,b)=>a-b);let tw=(ws[Math.floor(ws.length*.3)]||w*.3)/2;tw=Math.max(w*.06,Math.min(w*.35,tw));
+  const shY=neckY+(hipY-neckY)*.12,ls={x:cx-tw,y:shY},rs={x:cx+tw,y:shY};
+  const far=(test,o)=>{let b=null,bd=-1,c=0;for(let yy=top;yy<=bot;yy++)for(const r of rows[yy])for(let x=r[0];x<=r[1];x+=2){if(!test(x,yy))continue;c++;const d=(x-o.x)**2+(yy-o.y)**2;if(d>bd){bd=d;b={x,y:yy}}}return{b,c}};
+  const armLim=hipY+(bot-hipY)*.3,area=M.reduce((a,v)=>a+v,0)*.2;
+  const hmY=Math.round((top+neckY)/2);let hcx=mcx,hhw=tw;{let bd=1e9;for(const r of rows[hmY]||[]){const d=Math.abs((r[0]+r[1])/2-mcx);if(d<bd){bd=d;hcx=(r[0]+r[1])/2;hhw=(r[1]-r[0])/2}}}
+  const inHead=(x,yy)=>yy<neckY&&Math.abs(x-hcx)<hhw*1.1;
+  const farA=(test,o)=>{let b=null,bd=-1,c=0;for(let yy=top;yy<=bot;yy++)for(const r of rows[yy])for(let x=r[0];x<=r[1];x+=2){if(!test(x,yy)||inHead(x,yy))continue;c++;const d=(x-o.x)**2+(Math.max(0,yy-o.y)*.6)**2+(Math.min(0,yy-o.y))**2;if(d>bd){bd=d;b={x,y:yy}}}return{b,c}};
+  const L=farA((x,yy)=>x<cx-tw*1.15&&yy<armLim,ls),Rr=farA((x,yy)=>x>cx+tw*1.15&&yy<armLim,rs);
+  const okL=L.c>area*.01&&Math.hypot(L.b.x-ls.x,L.b.y-ls.y)>H*.1,okR=Rr.c>area*.01&&Math.hypot(Rr.b.x-rs.x,Rr.b.y-rs.y)>H*.1;
+  const lh={x:cx-tw*.5,y:hipY},rh={x:cx+tw*.5,y:hipY};
+  const LF=far((x,yy)=>x<cx&&yy>hipY,lh),RF=far((x,yy)=>x>=cx&&yy>hipY,rh);
+  let hx=0,hc=0;for(let yy=top;yy<Math.min(neckY,top+H*.1);yy++)for(const r of rows[yy]){hx+=(r[0]+r[1])/2;hc++}
+  return{
+    head:{x:hc?hx/hc:cx,y:top},neck:{x:cx,y:neckY},pelvis:{x:cx,y:hipY},
+    lsh:ls,lhand:okL?L.b:{x:ls.x-w*.12,y:ls.y+H*.12},noL:!okL,
+    rsh:rs,rhand:okR?Rr.b:{x:rs.x+w*.12,y:rs.y+H*.12},noR:!okR,
+    lhip:lh,lfoot:LF.b||{x:lh.x,y:bot},rhip:rh,rfoot:RF.b||{x:rh.x,y:bot},bot}}
+
+/* ================= 3. 그물망(메쉬) + 뼈대 무게 ================= */
+const BONES=[['torso','neck','pelvis'],['head','neck','head'],['la','lsh','lhand'],['ra','rsh','rhand'],['ll','lhip','lfoot'],['rl','rhip','rfoot']];
+function buildRig(){
+  const{w,h,mask,J}=C;
+  const bones=BONES.filter(b=>!(b[0]==='la'&&J.noL)&&!(b[0]==='ra'&&J.noR));
+  const g=Math.max(w,h)/24,nx=Math.ceil(w/g)+1,ny=Math.ceil(h/g)+1,verts=[],tris=[];
+  for(let j=0;j<ny;j++)for(let i=0;i<nx;i++)verts.push(Math.min(w,i*g),Math.min(h,j*g));
+  for(let j=0;j<ny-1;j++)for(let i=0;i<nx-1;i++){
+    let any=false;const xa=Math.floor(i*g),xb=Math.min(w,Math.ceil((i+1)*g)),ya=Math.floor(j*g),yb=Math.min(h,Math.ceil((j+1)*g));
+    for(let y=ya;y<yb&&!any;y+=2)for(let x=xa;x<xb;x+=2)if(mask[y*w+x]){any=true;break}
+    if(any){const a=j*nx+i,b=a+1,c=a+nx,d=c+1;tris.push(a,b,c,b,d,c)}}
+  const eps=Math.max(w,h)*.03,nv=verts.length/2,wts=new Float32Array(nv*bones.length);
+  const segD=(px,py,A,B)=>{const vx=B.x-A.x,vy=B.y-A.y,l=vx*vx+vy*vy||1;let t=((px-A.x)*vx+(py-A.y)*vy)/l;t=Math.max(0,Math.min(1,t));return Math.hypot(px-A.x-t*vx,py-A.y-t*vy)};
+  for(let v=0;v<nv;v++){const x=verts[v*2],y=verts[v*2+1];let s=0;
+    bones.forEach((b,k)=>{let d=segD(x,y,J[b[1]],J[b[2]]);
+      if(b[0]!=='torso'&&b[0]!=='head'){const A=J[b[1]],Bp=J[b[2]],vx=Bp.x-A.x,vy=Bp.y-A.y,l=Math.hypot(vx,vy)||1,tt=((x-A.x)*vx+(y-A.y)*vy)/l;if(tt<0)d+=-tt*3} // 어깨/엉덩이 안쪽(몸통)은 팔다리를 따라가지 않기
+      if(b[0]==='head'&&y>J.neck.y)d+=(y-J.neck.y)*2; // 목 아래는 머리 아님
+      const hw=Math.abs(J.rsh.x-J.lsh.x)/2+eps;
+      if(b[0]!=='head'&&y<J.neck.y&&(b[0]==='torso'||Math.abs(x-J.neck.x)<hw))d+=(J.neck.y-y)*2; // 목 위 머리는 머리뼈만 따라가기
+      const ww=1/Math.pow(d+eps,4);wts[v*bones.length+k]=ww;s+=ww});
+    for(let k=0;k<bones.length;k++)wts[v*bones.length+k]/=s}
+  C.rig={bones,verts,tris,wts,dv:new Float32Array(verts.length)}}
+
+function makeCharacter(src){
+  msg('그림을 살펴보는 중... 🔍');
+  setTimeout(()=>{
+    const s=segment(src);
+    if(!s){if(mode==='draw'){show('drawBar',1);msg('그림이 너무 작거나 연해요. 더 크고 진하게 그려 주세요!');return}
+      msg('그림을 못 찾았어요. 흰 종이에 진하게 그려서 화면 가득 찍어 주세요!');mode='empty';return}
+    C={...s,src};C.J=guessJoints(s.mask,s.w,s.h);C.bot=C.J.bot;C.cx=C.J.pelvis.x;
+    buildRig();enterEdit()},30)}
+let tool='bone',erasing=false,erased=false;
+const TIPS={bone:'동그라미를 끌어서 머리·손·발 위치를 맞춰요 (선생님 도움)',erase:'캐릭터가 아닌 부분을 문질러 지워요',restore:'빠진 부분(흐린 곳)을 문질러 되살려요'};
+function setTool(t){
+  if(t==='bone'&&erased&&C){C.J=guessJoints(C.mask,C.w,C.h);C.bot=C.J.bot;maskBox();erased=false} // 고친 뒤 뼈대 다시 찾기
+  tool=t;erasing=t!=='bone';
+  $('eraseBtn').textContent=t==='erase'?'🦴 뼈대 맞추기':'🧽 지우개';
+  $('restoreBtn').textContent=t==='restore'?'🦴 뼈대 맞추기':'🖌️ 되살리기';
+  $('editTip').textContent=TIPS[t]}
+const setErase=on=>setTool(on?'erase':'bone');
+$('eraseBtn').onclick=()=>setTool(tool==='erase'?'bone':'erase');
+$('restoreBtn').onclick=()=>setTool(tool==='restore'?'bone':'restore');
+$('rotBtn').onclick=()=>{if(!C)return;const s=C.src,c=document.createElement('canvas');c.width=s.height;c.height=s.width;const g=c.getContext('2d');g.translate(c.width,0);g.rotate(Math.PI/2);g.drawImage(s,0,0);setErase(false);makeCharacter(c)};
+function eraseAt(x,y){const R=16/LY.k,ix=(x-LY.ox)/LY.k,iy=(y-LY.oy)/LY.k,g=C.canvas.getContext('2d'),add=tool==='restore';
+  g.save();g.beginPath();g.arc(ix,iy,R,0,7);
+  if(add){g.clip();g.drawImage(C.orig,0,0)}else{g.globalCompositeOperation='destination-out';g.fill()}g.restore();
+  for(let yy=Math.max(0,Math.floor(iy-R));yy<Math.min(C.h,iy+R);yy++)for(let xx=Math.max(0,Math.floor(ix-R));xx<Math.min(C.w,ix+R);xx++)if((xx-ix)**2+(yy-iy)**2<=R*R)C.mask[yy*C.w+xx]=add?1:0;
+  erased=true}
+function enterEdit(){mode='edit';show('editBar',1);show('powers',0);show('saveBar',0);show('drawBar',0);labelText='';msg('③ 동그라미가 머리·손·발에 있나요?')}
+$('goBtn').onclick=()=>{setErase(false);buildRig();mode='play';show('editBar',0);show('powers',1);show('saveBar',1);msg('④ 초능력을 골라 보세요! (캐릭터를 누르면 인사해요)');startPower('greet')};
+$('boneBtn').onclick=enterEdit;
+
+/* ================= 4. 화면 그리기 ================= */
+let LY={k:1,ox:0,oy:0};
+function maskBox(){let x0=C.w,y0=C.h,x1=0,y1=0;for(let y=0;y<C.h;y++)for(let x=0;x<C.w;x++)if(C.mask[y*C.w+x]){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}C.mb={x0,y0,w:Math.max(1,x1-x0+1),h:Math.max(1,y1-y0+1)};return C.mb}
+function layout(){const W=view.clientWidth,H=view.clientHeight;const mb=C.mb||maskBox();const k=Math.min(W*.58/mb.w,H*.66/mb.h);LY={k,ox:W/2-C.cx*k,oy:H*.88-C.bot*k,W,H}}
+const toS=(x,y)=>[LY.ox+x*LY.k,LY.oy+y*LY.k];
+function drawTri(g,img,s,d){
+  const[x0,y0,x1,y1,x2,y2]=d,cx=(x0+x1+x2)/3,cy=(y0+y1+y2)/3;
+  const ex=(x,y)=>{const dx=x-cx,dy=y-cy,l=Math.hypot(dx,dy)||1;return[x+dx/l*.9,y+dy/l*.9]};
+  const[u0,v0,u1,v1,u2,v2]=s,a1=u1-u0,b1=v1-v0,a2=u2-u0,b2=v2-v0,det=a1*b2-a2*b1;if(!det)return;
+  const dx1=x1-x0,dy1=y1-y0,dx2=x2-x0,dy2=y2-y0;
+  const A=(dx1*b2-dx2*b1)/det,Cc=(-dx1*a2+dx2*a1)/det,Bb=(dy1*b2-dy2*b1)/det,D=(-dy1*a2+dy2*a1)/det;
+  const E=x0-A*u0-Cc*v0,F=y0-Bb*u0-D*v0;
+  g.save();g.beginPath();let q=ex(x0,y0);g.moveTo(q[0],q[1]);q=ex(x1,y1);g.lineTo(q[0],q[1]);q=ex(x2,y2);g.lineTo(q[0],q[1]);g.closePath();g.clip();
+  g.transform(A,Bb,Cc,D,E,F);
+  const sx=Math.max(0,Math.floor(Math.min(u0,u1,u2))-2),sy=Math.max(0,Math.floor(Math.min(v0,v1,v2))-2);
+  const sw=Math.min(img.width,Math.ceil(Math.max(u0,u1,u2))+2)-sx,sh=Math.min(img.height,Math.ceil(Math.max(v0,v1,v2))+2)-sy;
+  if(sw>0&&sh>0)g.drawImage(img,sx,sy,sw,sh,sx,sy,sw,sh);g.restore()}
+const rad=d=>d*Math.PI/180,clamp=v=>Math.max(0,Math.min(1,v)),sm=v=>{v=clamp(v);return v*v*(3-2*v)};
+const norm=a=>{a=((a+180)%360+360)%360-180;return a};
+function aim(b,deg){const J=C.J,m={la:['lsh','lhand'],ra:['rsh','rhand']}[b];const A=J[m[0]],B=J[m[1]];return norm(deg-Math.atan2(B.y-A.y,B.x-A.x)*180/Math.PI)}
+// 뼈대 회전을 적용해서 점 하나 옮기기
+function boneXf(P){const J=C.J,T={};
+  for(const[n,a]of[['head','neck'],['la','lsh'],['ra','rsh'],['ll','lhip'],['rl','rhip']]){const r=rad(P[n]||0);T[n]={c:Math.cos(r),s:Math.sin(r),px:J[a].x,py:J[a].y}}
+  T.torso={c:1,s:0,px:0,py:0};return T}
+function bodyXf(P,x,y){ // 몸 전체: 크기, 기울기, 이동 (발 기준)
+  const ax=C.J.pelvis.x,ay=C.bot;let dx=(x-ax)*P.sx,dy=(y-ay)*P.sy;const r=rad(P.rot),c=Math.cos(r),s=Math.sin(r);
+  const[X,Y]=toS(ax+dx*c-dy*s,ay+dx*s+dy*c);return[X+P.tx,Y+P.ty]}
+function pointAt(P,T,bone,pt){const t=T[bone];const x=pt.x-t.px,y=pt.y-t.py;return bodyXf(P,t.px+x*t.c-y*t.s,t.py+x*t.s+y*t.c)}
+
+/* ================= 5. 초능력 동작 ================= */
+const DUR={greet:2.2,walk:4,jump:3,fly:3.5,fire:3,ice:3,big:3,hide:3.5,star:3,dance:4};
+function idle(T){return{tx:0,ty:0,rot:0,sx:1-Math.sin(T*3)*.02,sy:1+Math.sin(T*3)*.02,op:1,head:Math.sin(T*1.6)*6,la:5+Math.sin(T*2)*7,ra:-(5+Math.sin(T*2+1)*7),ll:0,rl:0}}
+function powerPose(p,t){const s=Math.sin;switch(p){
+  case'greet':return{ra:aim('ra',-60)+s(t*14)*25,head:10,ty:-Math.abs(s(t*4))*10};
+  case'walk':{const w=t*9;return{tx:s(t*1.4)*150,ty:-Math.abs(s(w))*8,ll:s(w)*24,rl:-s(w)*24,la:-s(w)*22,ra:-s(w)*22,head:s(w)*4,rot:s(w)*2}}
+  case'jump':{const j=Math.abs(s(t*Math.PI/1.3));return{ty:-j*LY.H*.28,la:aim('la',-125),ra:aim('ra',-55),ll:16*j,rl:-16*j,sy:1+(j-.5)*.12,sx:1-(j-.5)*.06}}
+  case'fly':return{ty:-LY.H*.16+s(t*3)*12,tx:s(t*1.8)*LY.W*.2,rot:Math.cos(t*1.8)*12,la:aim('la',190)+s(t*12)*35,ra:aim('ra',-10)-s(t*12)*35,ll:-6,rl:6};
+  case'fire':return C.J.noR?{la:aim('la',185),tx:s(t*50)*2,ll:8,rl:-8,head:5}:{ra:aim('ra',-5),tx:s(t*50)*2,ll:8,rl:-8,head:-5};
+  case'ice':return{la:aim('la',185),ra:aim('ra',-5),ll:8,rl:-8,ty:s(t*20)*1.5};
+  case'big':{const k=1+sm(t/1)*.7;return{sx:k,sy:k,la:aim('la',-140)+s(t*6)*12,ra:aim('ra',-40)-s(t*6)*12,ll:12,rl:-12,tx:t<1?s(t*60)*4:0}}
+  case'hide':return{op:.1+.9*(.5+.5*Math.cos(t*3)),tx:s(t*1.5)*70,ll:s(t*6)*12,rl:-s(t*6)*12,head:s(t*2)*15};
+  case'star':{const sp=sm(t/3)*720;return{rot:norm(sp),ty:-70*s(Math.PI*clamp(t/3)),la:aim('la',-130),ra:aim('ra',-50)}}
+  case'dance':{const d=t*8;return{la:aim('la',205)+s(d)*40,ra:aim('ra',-25)-s(d+Math.PI)*40,head:s(d)*9,ll:s(d)*15,rl:s(d)*15,tx:s(t*4)*50,ty:-Math.abs(s(d))*15,rot:s(d)*6}}
+  }return{}}
+function startPower(p){power=p;t0=performance.now();parts=[];if(p!=='greet')lastPower=p;if(p!=='greet')say(document.querySelector(`[data-p=${p}]`).textContent+'!');else say('안녕! 👋')}
+function say(s){const nm=$('name').value.trim();labelText=(nm?nm+': ':'')+s}
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>startPower(b.dataset.p));
+function emit(x,y,col,n,vx,vy,spread,size){for(let i=0;i<n;i++)parts.push({x,y,vx:vx+(Math.random()-.5)*spread,vy:vy+(Math.random()-.5)*spread,l:1,c:col[(Math.random()*col.length)|0],s:(size||6)+Math.random()*6,star:false})}
+
+/* ================= 6. 메인 루프 ================= */
+function frame(now){
+  const dpr=Math.min(2,window.devicePixelRatio||1),W=view.clientWidth,H=view.clientHeight;
+  if(view.width!==Math.round(W*dpr)||view.height!==Math.round(H*dpr)){view.width=off.width=Math.round(W*dpr);view.height=off.height=Math.round(H*dpr)}
+  ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,view.width,view.height);ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(mode!=='camera'){ // 배경도 캔버스에 그려야 사진/영상에 나옴
+    if(mode==='draw'){ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.drawImage(pad,0,0,W,H)}
+    else{const sky=ctx.createLinearGradient(0,0,0,H*.7);sky.addColorStop(0,'#8fd3ff');sky.addColorStop(1,'#d9f2ff');ctx.fillStyle=sky;ctx.fillRect(0,0,W,H*.7);ctx.fillStyle='#9be38f';ctx.fillRect(0,H*.7,W,H*.3);
+      ctx.fillStyle='#fff8';for(const[cx0,cy0,s]of[[.18,.16,1],[.72,.1,.8],[.9,.3,.6]]){const x=((cx0*W+now*.01*s)%(W+120))-60,y=cy0*H;ctx.beginPath();ctx.arc(x,y,22*s+8,0,7);ctx.arc(x+26*s,y+6,18*s+6,0,7);ctx.arc(x-24*s,y+8,16*s+5,0,7);ctx.fill()}}}
+  if(C&&(mode==='play'||mode==='edit')){
+    layout();const T=now/1000;
+    if(mode==='edit'){
+      const[x,y]=toS(0,0);
+      if(tool==='restore'){ctx.globalAlpha=.3;ctx.drawImage(C.orig,x,y,C.w*LY.k,C.h*LY.k);ctx.globalAlpha=1}
+      ctx.drawImage(C.canvas,x,y,C.w*LY.k,C.h*LY.k);
+      if(erasing){ctx.strokeStyle='#ff5e8a';ctx.lineWidth=3;ctx.setLineDash([8,6]);ctx.strokeRect(x,y,C.w*LY.k,C.h*LY.k);ctx.setLineDash([])}
+      const J=C.J;ctx.lineWidth=5;ctx.lineCap='round';if(!erasing){
+      for(const b of BONES){const A=toS(J[b[1]].x,J[b[1]].y),B=toS(J[b[2]].x,J[b[2]].y);ctx.strokeStyle='#fff';ctx.beginPath();ctx.moveTo(...A);ctx.lineTo(...B);ctx.stroke()}
+      const cols={head:'#ff5e8a',neck:'#ffa500',pelvis:'#ffa500',lsh:'#2b9cff',rsh:'#2b9cff',lhand:'#2b9cff',rhand:'#2b9cff',lhip:'#2bbd5a',rhip:'#2bbd5a',lfoot:'#2bbd5a',rfoot:'#2bbd5a'};
+      for(const k in cols){const[X,Y]=toS(J[k].x,J[k].y);ctx.fillStyle=cols[k];ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(X,Y,dragJ===k?15:11,0,7);ctx.fill();ctx.stroke()}}
+    }else{
+      const t=(now-t0)/1000,D=DUR[power]||0;let e=0;
+      if(power!=='idle'){if(t>D){power='idle';say('또 해 볼까? 😄')}else e=sm(t/.35)*sm((D-t)/.35)}
+      const I=idle(T),Pp=power!=='idle'?Object.assign({},I,powerPose(power,t)):I,P={};
+      for(const k in I)P[k]=I[k]+(Pp[k]-I[k])*e;
+      const R=C.rig,Tx=boneXf(P),nb=R.bones.length,nv=R.verts.length/2,dv=R.dv;
+      for(let v=0;v<nv;v++){const x=R.verts[v*2],y=R.verts[v*2+1];let X=0,Y=0;
+        for(let k=0;k<nb;k++){const w=R.wts[v*nb+k];if(w<1e-4)continue;const t2=Tx[R.bones[k][0]],dx=x-t2.px,dy=y-t2.py;X+=w*(t2.px+dx*t2.c-dy*t2.s);Y+=w*(t2.py+dx*t2.s+dy*t2.c)}
+        const q=bodyXf(P,X,Y);dv[v*2]=q[0];dv[v*2+1]=q[1]}
+      octx.setTransform(1,0,0,1,0,0);octx.clearRect(0,0,off.width,off.height);octx.setTransform(dpr,0,0,dpr,0,0);
+      const tr=R.tris,vs=R.verts,s6=[0,0,0,0,0,0],d6=[0,0,0,0,0,0];
+      for(let i=0;i<tr.length;i+=3){for(let j=0;j<3;j++){const id=tr[i+j];s6[j*2]=vs[id*2];s6[j*2+1]=vs[id*2+1];d6[j*2]=dv[id*2];d6[j*2+1]=dv[id*2+1]}drawTri(octx,C.canvas,s6,d6)}
+      // 효과
+      let filt='none';
+      if(e>.3){if(power==='fire')filt='drop-shadow(0 0 14px orange)';if(power==='ice')filt='drop-shadow(0 0 14px #8ef)';if(power==='big')filt='drop-shadow(0 0 10px #ff0)';if(power==='star')filt='drop-shadow(0 0 12px #ffd700)'}
+      ctx.save();ctx.globalAlpha=P.op;ctx.filter=filt;ctx.setTransform(1,0,0,1,0,0);ctx.drawImage(off,0,0);ctx.restore();
+      if(e>.5){const J=C.J,hand=b=>pointAt(P,Tx,b,J[b==='la'?'lhand':'rhand']);
+        if(power==='fire'){const b=J.noR?'la':'ra',[hx,hy]=hand(b),dir=J.noR?-1:1;emit(hx,hy,['#ff3d00','#ff9100','#ffea00'],5,dir*9,-.5,3,7)}
+        if(power==='ice'){if(!J.noL){const[a,b]=hand('la');emit(a,b,['#e0f7ff','#9ee7ff','#fff'],3,-7,0,3,5)}if(!J.noR){const[a,b]=hand('ra');emit(a,b,['#e0f7ff','#9ee7ff','#fff'],3,7,0,3,5)}}
+        if(power==='fly'){const[a,b]=pointAt(P,Tx,'ll',J.lfoot);emit(a,b,['#fff','#e8f6ff'],2,0,2,2,8)}
+        if(power==='star'){const[a,b]=pointAt(P,Tx,'torso',J.neck);emit(a,b,['#ffd700','#ff69b4','#7cf'],3,0,0,12,5);parts.slice(-3).forEach(p=>p.star=true)}
+        if(power==='big'&&Math.random()<.3){const[a,b]=bodyXf(P,J.pelvis.x,C.bot);emit(a,b,['#c8a26b','#a07c4a'],4,0,-3,8,4)}
+        if(power==='dance'&&Math.random()<.15){emit(Math.random()*W,0,['#ff5e8a','#ffd23f','#7bdff2','#b2f7b0'],1,0,3,1,6)}}
+    }}
+  parts=parts.filter(p=>(p.l-=.018)>0);
+  for(const p of parts){p.x+=p.vx;p.y+=p.vy;ctx.globalAlpha=p.l;ctx.fillStyle=p.c;
+    if(p.star){ctx.font=`${p.s*3}px sans-serif`;ctx.fillText('★',p.x,p.y)}else{ctx.beginPath();ctx.arc(p.x,p.y,p.s*p.l,0,7);ctx.fill()}}
+  ctx.globalAlpha=1;
+  if(labelText&&mode==='play'){ctx.font=`bold ${Math.round(Math.min(34,W/18))}px 'Jua','Malgun Gothic',sans-serif`;ctx.textAlign='center';ctx.textBaseline='top';ctx.lineWidth=6;ctx.strokeStyle='#ff5e8a';ctx.lineJoin='round';ctx.strokeText(labelText,W/2,12);ctx.fillStyle='#fff';ctx.fillText(labelText,W/2,12);ctx.textAlign='start';ctx.textBaseline='alphabetic'}
+  requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+
+/* ================= 7. 터치: 관절 옮기기 / 캐릭터 누르면 인사 ================= */
+const ptr=e=>{const r=view.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]};
+view.addEventListener('pointerdown',e=>{const[x,y]=ptr(e);
+  if(mode==='draw'){view.setPointerCapture(e.pointerId);saveUndo();if(penTool==='fill'){bucket(x,y);return}lastPt=[x,y];penLine(lastPt,[x+.01,y]);return}
+  if(!C)return;
+  if(mode==='edit'&&erasing){dragJ='__erase';view.setPointerCapture(e.pointerId);eraseAt(x,y);return}
+  if(mode==='edit'){let best=null,bd=35;for(const k of['head','neck','pelvis','lsh','rsh','lhand','rhand','lhip','rhip','lfoot','rfoot']){const[X,Y]=toS(C.J[k].x,C.J[k].y),d=Math.hypot(X-x,Y-y);if(d<bd){bd=d;best=k}}
+    if(best){dragJ=best;view.setPointerCapture(e.pointerId)}}
+  else if(mode==='play'&&power==='idle')startPower('greet')});
+view.addEventListener('pointermove',e=>{const[x,y]=ptr(e);
+  if(mode==='draw'){if(lastPt){penLine(lastPt,[x,y]);lastPt=[x,y]}return}
+  if(mode!=='edit'||!dragJ)return;
+  if(dragJ==='__erase'){eraseAt(x,y);return}
+  C.J[dragJ]={x:Math.max(0,Math.min(C.w,(x-LY.ox)/LY.k)),y:Math.max(0,Math.min(C.h,(y-LY.oy)/LY.k))};
+  if(dragJ==='lhand')C.J.noL=false;if(dragJ==='rhand')C.J.noR=false});
+view.addEventListener('pointerup',()=>{dragJ=null;lastPt=null});
+view.addEventListener('pointercancel',()=>{dragJ=null;lastPt=null});
+// 인터넷 주소(https)로 열면: 홈 화면에 설치 + 인터넷 없이도 실행
+if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script></body></html>
